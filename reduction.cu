@@ -10,7 +10,7 @@ __global__ void sum(int* array, int N) {
 }
 
 int main() {
-	int N = 1 << 30;
+	int N = 1 << 10;
 
 	int* arr = (int*)malloc(N * sizeof(int));
 
@@ -31,7 +31,6 @@ int main() {
 	cudaMemcpy(arr, d_array, sizeof(int), cudaMemcpyDeviceToHost);
 
 	clock_t end = clock();
-	printf("start: %d, end: %d, end-start: %d, cps: %d, time: %f", start, end, end-start, CLOCKS_PER_SEC, (double)(end-start)/CLOCKS_PER_SEC);
 	printf("N = %d\nSUM = %d\nTime Taken = %f seconds\n", N, arr[0], (double)(clock() - start) / CLOCKS_PER_SEC);
 
 	cudaFree(d_array);

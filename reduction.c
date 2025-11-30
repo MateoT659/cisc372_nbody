@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <cuda.h>
 
 __global__ void sum(int* array, int N) {
 	for (int i = 1; i < N; i++) {

@@ -1,6 +1,7 @@
 //reduction fo practice
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 int main() {
 	int N = 1 << 30;
@@ -11,13 +12,15 @@ int main() {
 		arr[i] = 1;
 	}
 
+	clock_t start = clock();
+
 	
 	int sum = 0;
 	for (int i = 0; i < N; i++) {
 		sum += arr[i];
 	}
 
-	printf("N = %d\n SUM = %d", N, sum);
+	printf("\tN = %d\n\tSUM = %d\n\tTime Taken = %f seconds\n", N, sum, clock()-start);
 
 
 	free(arr);

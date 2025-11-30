@@ -20,7 +20,7 @@ int main() {
 	}
 	
 	int* d_array;
-	cudaMalloc(d_array, N * sizeof(int));
+	cudaMalloc(&d_array, N * sizeof(int));
 	cudaMemcpy(d_array, array, N * sizeof(int), cudaMemcpyHostToDevice);
 
 	clock_t start = clock();

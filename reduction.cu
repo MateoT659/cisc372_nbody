@@ -23,7 +23,7 @@ int main() {
 	cudaMemcpy(d_array, arr, N * sizeof(int), cudaMemcpyHostToDevice);
 
 	clock_t start = clock();
-	printf("%d\n", start)
+	printf("%d\n", start);
 	sum<<<1, 1>>>(d_array, N);
 	cudaDeviceSynchronize();
 

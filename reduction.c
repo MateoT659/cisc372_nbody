@@ -2,5 +2,9 @@
 #include <stdio.h>
 
 int main() {
-	printf("Hello, World!\n");
+	int N = 1 << 20;
+
+	printf("N = %d\n", N);
+
+
 }

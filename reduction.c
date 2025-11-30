@@ -20,7 +20,7 @@ int main() {
 		sum += arr[i];
 	}
 
-	printf("\tN = %d\n\tSUM = %d\n\tTime Taken = %f seconds\n", N, sum, clock()-start);
+	printf("\tN = %d\n\tSUM = %d\n\tTime Taken = %f seconds\n", N, sum, (double)(clock()-start)/CLOCKS_PER_SEC);
 
 
 	free(arr);

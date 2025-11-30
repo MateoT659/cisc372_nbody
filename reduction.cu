@@ -23,12 +23,15 @@ int main() {
 	cudaMemcpy(d_array, arr, N * sizeof(int), cudaMemcpyHostToDevice);
 
 	clock_t start = clock();
-	printf("%d\n", start);
+
+
 	sum<<<1, 1>>>(d_array, N);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(arr, d_array, sizeof(int), cudaMemcpyDeviceToHost);
 
+	clock_t end = clock();
+	printf("start: %d, end: %d, end-start: %d, cps: %d, time: %f", start, end, end-start, CLOCKS_PER_SEC, (double)(end-start)/CLOCKS_PER_SEC);
 	printf("N = %d\nSUM = %d\nTime Taken = %f seconds\n", N, arr[0], (double)(clock() - start) / CLOCKS_PER_SEC);
 
 	cudaFree(d_array);

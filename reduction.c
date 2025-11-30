@@ -1,10 +1,11 @@
 //reduction fo practice
 #include <stdio.h>
+#include <stdlib.h>
 
 int main() {
 	int N = 1 << 20;
 
-	int* arr = (int*) malloc(N*sizeof(int))
+	int* arr = (int*)malloc(N * sizeof(int));
 
 	for (int i = 0; i < N; i++) {
 		arr[i] = 1;

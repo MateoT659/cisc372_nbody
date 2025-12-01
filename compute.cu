@@ -71,8 +71,12 @@ extern "C" void compute() {
 	int threads_per_block_init = NUMENTITIES;
 
 	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
-	gpuErrchk(cudaDeviceSynchronize())
-	
+	gpuErrchk(cudaDeviceSynchronize());
+
+	gpuErrchk(cudaMalloc(&d_hPos, NUMENTITIES * sizeof(vector3)));
+	gpuErrchk(cudaMalloc(&d_hVel, NUMENTITIES * sizeof(vector3)));
+	gpuErrchk(cudaMalloc(&d_mass, NUMENTITIES*sizeof(double)));
+
 	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));

@@ -15,7 +15,7 @@ __global__ void sum(int* array, int N) {
 	int gap = 1;
 
 	while((threadIndex-start)%(gap<<1) == 0 && gap<stride*2){
-		if(threadIndex+gap < end){
+		if(threadIndex+gap < end && threadIndex+gap < N){
 			array[threadIndex] += array[threadIndex+gap];
 		}
 		__syncthreads();
@@ -39,7 +39,7 @@ int main() {
 	clock_t start = clock();
 
 	int block_size = 256;
-	int n_blocks = (N+block_size-1)/block_size;
+	int n_blocks = ((N/2 + 1)+block_size-1)/(block_size);
 
 	sum<<<n_blocks, block_size>>>(d_array, N);
 	cudaDeviceSynchronize();

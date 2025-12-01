@@ -5,9 +5,20 @@
 
 __global__ void sum(int* array, int N) {
 	int thx = threadIdx.x;
-	int stride = blockDim.x;
-	for (int i = thx; i < N; i+= stride) {
-		array[0] += array[i];
+	stride = blockDim.x;
+	stride2 = stride*2;
+	int threadIndex = 2*thx;
+
+	int gap = 1;
+
+	while(thx%(gap*2) == 0 && gap<N){
+		for (int i = threadIndex; i < N; i+= stride2) {
+			if(threadIndex+gap < N){
+				array[threadIndex] += array[threadIndex+gap];
+			}
+		}
+		__syncthreads();
+		gap << 1;
 	}
 }
 

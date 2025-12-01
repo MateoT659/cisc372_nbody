@@ -13,8 +13,8 @@ __global__ void sum(int* array, int N) {
 
 	while(thx%(gap*2) == 0 && gap<N){
 		for (int i = threadIndex; i < N; i+= stride2) {
-			if(threadIndex+gap < N){
-				array[threadIndex] += array[threadIndex+gap];
+			if(i+gap < N){
+				array[i] += array[i+gap];
 			}
 		}
 		__syncthreads();

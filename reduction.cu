@@ -8,12 +8,13 @@ __global__ void sum(int* array, int N) {
 	int stride = blockDim.x;
 	int blockx = blockIdx.x;
 	int threadIndex = 2*(stride*blockx + thx);
+	int start = 2*(stride*blockx);
 
 	int end = (blockx+1)*(stride*2);
 
 	int gap = 1;
 
-	while(threadIndex%(gap*2) == 0 && gap<stride*2){
+	while((threadIndex-start)%(gap<<1) == 0 && gap<stride*2){
 		if(threadIndex+gap < end){
 			array[threadIndex] += array[threadIndex+gap];
 		}
@@ -37,17 +38,17 @@ int main() {
 
 	clock_t start = clock();
 
-
 	int block_size = 256;
 	int n_blocks = (N+block_size-1)/block_size;
 
 	sum<<<n_blocks, block_size>>>(d_array, N);
 	cudaDeviceSynchronize();
+	
+	clock_t end = clock();
 
 	cudaMemcpy(arr, d_array, sizeof(int), cudaMemcpyDeviceToHost);
-
-	clock_t end = clock();
-	printf("N = %d\nSUM = %d\nTime Taken = %f seconds\n", N, arr[0], (double)(clock() - start) / CLOCKS_PER_SEC);
+	
+	printf("N = %d\nSUM = %d\nTime Taken = %f seconds\n", N, arr[0], (double)(end - start) / CLOCKS_PER_SEC);
 
 	cudaFree(d_array);
 

@@ -6,16 +6,17 @@
 __global__ void sum(int* array, int N) {
 	int thx = threadIdx.x;
 	int stride = blockDim.x;
-	int stride2 = stride*2;
-	int threadIndex = 2*thx;
+	int blockx = blockIdx.x;
+	int threadIndex = 2*(stride*blockx + thx);
+
+	int start = blockx*(stride*2);
+	int end = (blockx+1)*(stride*2);
 
 	int gap = 1;
 
-	while(threadIndex%(gap*2) == 0 && gap<N){
-		for (int i = threadIndex; i < N; i+= stride2) {
-			if(i+gap < N){
-				array[i] += array[i+gap];
-			}
+	while(threadIndex%(gap*2) == 0 && gap<stride*2){
+		if(threadIndex+gap < end){
+			array[threadIndex] += array[threadIndex+gap];
 		}
 		__syncthreads();
 		gap <<= 1;
@@ -39,8 +40,9 @@ int main() {
 
 
 	int block_size = 256;
+	int n_blocks = (N+block_size-1)/block_size
 
-	sum<<<1, block_size>>>(d_array, N);
+	sum<<<n_blocks, block_size>>>(d_array, N);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(arr, d_array, sizeof(int), cudaMemcpyDeviceToHost);

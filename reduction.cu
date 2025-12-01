@@ -11,7 +11,7 @@ __global__ void sum(int* array, int N) {
 
 	int gap = 1;
 
-	while(thx%(gap*2) == 0 && gap<N){
+	while(threadIndex%(gap*2) == 0 && gap<N){
 		for (int i = threadIndex; i < N; i+= stride2) {
 			if(i+gap < N){
 				array[i] += array[i+gap];

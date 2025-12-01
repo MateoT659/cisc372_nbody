@@ -6,7 +6,6 @@
 
 //serial version
 
-__global__
 void initAccels(vector3** accels, vector3* values) {
 	int i = threadIdx.x;
 	accels[i] = &values[i * NUMENTITIES];
@@ -32,7 +31,6 @@ void compute() {
 
 	int block_size = NUMENTITIES;
 
-	initAccels<<<1, block_size>>>(d_accels, d_values);
 	
 	
 	

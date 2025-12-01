@@ -3,6 +3,23 @@
 #include "vector.h"
 #include "config.h"
 
+__global__ 
+void pairwiseAcceleration(vector3** accels) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	int j = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (i == j) {
+		FILL_VECTOR(accels[i][j], 0, 0, 0);
+	}
+	else {
+		vector3 distance;
+		for (int k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
+		double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
+		double magnitude = sqrt(magnitude_sq);
+		double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
+		FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
+	}
+}
 
 //compute: Updates the positions and locations of the objects in the system based on gravity.
 //Parameters: None
@@ -43,22 +60,4 @@ void compute(){
 	}
 	free(accels);
 	free(values);
-}
-
-//__global__
-void pairwiseAcceleration(vector3** accels) {
-	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	int j = blockIdx.y * blockDim.y + threadIdx.y;
-
-	if (i == j) {
-		FILL_VECTOR(accels[i][j], 0, 0, 0);
-	}
-	else {
-		vector3 distance;
-		for (int k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
-		double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
-		double magnitude = sqrt(magnitude_sq);
-		double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
-		FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
-	}
 }

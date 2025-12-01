@@ -5,8 +5,8 @@
 
 __global__ void sum(int* array, int N) {
 	int thx = threadIdx.x;
-	stride = blockDim.x;
-	stride2 = stride*2;
+	int stride = blockDim.x;
+	int stride2 = stride*2;
 	int threadIndex = 2*thx;
 
 	int gap = 1;

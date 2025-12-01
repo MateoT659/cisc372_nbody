@@ -10,7 +10,7 @@ __global__ void sum(int* array, int N) {
 }
 
 int main() {
-	int N = 1 << 10;
+	int N = 1 << 20;
 
 	int* arr = (int*)malloc(N * sizeof(int));
 

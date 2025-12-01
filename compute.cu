@@ -5,15 +5,34 @@
 
 //serial version
 
+// __global__
+void initAccels(vector3** accels, vector3* values) {
+	int i = threadIdx.x;
+	accels[i] = &values[i * NUMENTITIES];
+}
+
 void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
 	int i, j, k;
 	
-	
+	// --- OLD CODE ---
 	vector3* values = (vector3*)malloc(sizeof(vector3) * NUMENTITIES * NUMENTITIES);
 	vector3** accels = (vector3**)malloc(sizeof(vector3*) * NUMENTITIES);
+
 	for (i = 0; i < NUMENTITIES; i++)
 		accels[i] = &values[i * NUMENTITIES];
+
+	// --- NEW CODE ---
+	vector3* d_values;
+	vector3** d_accels;
+
+	cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES);
+	cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES);
+
+	int block_size = NUMENTITIES;
+
+	initAccels<<<1, block_size>>>(d_accels, d_values);
+	
 	
 	
 	

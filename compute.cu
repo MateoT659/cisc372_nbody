@@ -2,6 +2,7 @@
 #include <math.h>
 #include "vector.h"
 #include "config.h"
+#include "compute.h"
 
 //serial version
 

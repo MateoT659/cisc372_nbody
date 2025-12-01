@@ -4,7 +4,9 @@
 #include <time.h>
 
 __global__ void sum(int* array, int N) {
-	for (int i = 1; i < N; i++) {
+	int thx = threadIdx.x;
+	int stride = blockDim.x;
+	for (int i = thx; i < N; i+= stride) {
 		array[0] += array[i];
 	}
 }
@@ -25,7 +27,9 @@ int main() {
 	clock_t start = clock();
 
 
-	sum<<<1, 1>>>(d_array, N);
+	int block_size = 256;
+
+	sum<<<1, block_size>>>(d_array, N);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(arr, d_array, sizeof(int), cudaMemcpyDeviceToHost);

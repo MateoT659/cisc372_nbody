@@ -25,7 +25,7 @@ void compute(){
 	dim3 threadsPerBlock(16, 16);
 	dim3 nBlocks((NUMENTITIES + threadsPerBlock.x -1) / threadsPerBlock.x, (NUMENTITIES + threadsPerBlock.y - 1) / threadsPerBlock.y);
 
-	pairwiseAcceleration << nBlocks, threadsPerBlock >> (accels);
+	pairwiseAcceleration<<<nBlocks, threadsPerBlock>>>(accels);
 
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
 	for (i=0;i<NUMENTITIES;i++){

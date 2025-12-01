@@ -5,7 +5,7 @@
 
 //serial version
 
-// __global__
+__global__
 void initAccels(vector3** accels, vector3* values) {
 	int i = threadIdx.x;
 	accels[i] = &values[i * NUMENTITIES];

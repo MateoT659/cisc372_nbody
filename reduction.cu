@@ -9,7 +9,6 @@ __global__ void sum(int* array, int N) {
 	int blockx = blockIdx.x;
 	int threadIndex = 2*(stride*blockx + thx);
 
-	int start = blockx*(stride*2);
 	int end = (blockx+1)*(stride*2);
 
 	int gap = 1;
@@ -40,7 +39,7 @@ int main() {
 
 
 	int block_size = 256;
-	int n_blocks = (N+block_size-1)/block_size
+	int n_blocks = (N+block_size-1)/block_size;
 
 	sum<<<n_blocks, block_size>>>(d_array, N);
 	cudaDeviceSynchronize();

@@ -61,7 +61,7 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
-	
+
 	vector3* d_values;
 	vector3** d_accels;
 
@@ -75,7 +75,7 @@ extern "C" void compute() {
 
 	gpuErrchk(cudaMalloc(&d_hPos, NUMENTITIES * sizeof(vector3)));
 	gpuErrchk(cudaMalloc(&d_hVel, NUMENTITIES * sizeof(vector3)));
-	gpuErrchk(cudaMalloc(&d_mass, NUMENTITIES*sizeof(double)));
+	gpuErrchk(cudaMalloc(&d_mass, NUMENTITIES * sizeof(double)));
 
 	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
@@ -85,10 +85,20 @@ extern "C" void compute() {
 	dim3 threads_per_block_PWA(16, 16);
 	dim3 n_blocks_PWA((NUMENTITIES + threads_per_block_PWA.x - 1) / threads_per_block_PWA.x, (NUMENTITIES + threads_per_block_PWA.y - 1) / threads_per_block_PWA.y);
 
-	pairwiseAccels<<<n_blocks_PWA, threads_per_block_PWA >>>(d_accels, d_hPos, d_mass);
+	pairwiseAccels << <n_blocks_PWA, threads_per_block_PWA >> > (d_accels, d_hPos, d_mass);
 	gpuErrchk(cudaDeviceSynchronize());
-	
-	
+
+	vector3* values = (vector3*) malloc(NUMENTITIES * NUMENTITIES * sizeof(vector3));
+
+	gpuErrchk(cudaMemcpy(values, d_values, NUMENTITIES * NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
+
+	fprintf(stdout, "\n\n VALUES \n \n");
+	for (int i = 0; i < NUMENTITIES * NUMENTITIES; i++) {
+		for (int k = 0; k < 3; k++) {
+			fprintf(stdout, "%f", values[i][k]);
+		}
+	}
+
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
 	int threads_per_block_update = 256;
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;

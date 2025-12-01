@@ -18,7 +18,7 @@ __global__ void sum(int* array, int N) {
 			}
 		}
 		__syncthreads();
-		gap << 1;
+		gap <<= 1;
 	}
 }
 

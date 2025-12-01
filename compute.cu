@@ -6,10 +6,10 @@
 
 //serial version
 
-void initAccels(vector3** accels, vector3* values) {
-	int i = threadIdx.x;
-	accels[i] = &values[i * NUMENTITIES];
-}
+//void initAccels(vector3** accels, vector3* values) {
+//	int i = threadIdx.x;
+//	accels[i] = &values[i * NUMENTITIES];
+//}
 
 void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;

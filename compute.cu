@@ -1,7 +1,18 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 #include "vector.h"
 #include "config.h"
+
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
+{
+	if (code != cudaSuccess)
+	{
+		fprintf(stdout, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+		if (abort) exit(code);
+	}
+}
 
 //serial version
 __global__
@@ -54,24 +65,24 @@ extern "C" void compute() {
 	vector3* d_values;
 	vector3** d_accels;
 
-	cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES);
-	cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES);
+	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
+	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
 
 	int threads_per_block_init = NUMENTITIES;
 
 	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
+	gpuErrchk(cudaDeviceSynchronize())
 	
-	
-	cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice);
+	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
 
 
 	dim3 threads_per_block_PWA(16, 16);
 	dim3 n_blocks_PWA((NUMENTITIES + threads_per_block_PWA.x - 1) / threads_per_block_PWA.x, (NUMENTITIES + threads_per_block_PWA.y - 1) / threads_per_block_PWA.y);
 
 	pairwiseAccels<<<n_blocks_PWA, threads_per_block_PWA >>>(d_accels, d_hPos, d_mass);
-	
+	gpuErrchk(cudaDeviceSynchronize());
 	
 	
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
@@ -79,10 +90,10 @@ extern "C" void compute() {
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
 
 	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
-	cudaDeviceSynchronize();
+	gpuErrchk(cudaDeviceSynchronize());
 
-	cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
-	cudaMemcpy(hVel, d_hVel , NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
+	gpuErrchk(cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
+	gpuErrchk(cudaMemcpy(hVel, d_hVel , NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
 	
 	cudaFree(d_values);
 	cudaFree(d_accels);

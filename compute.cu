@@ -76,7 +76,8 @@ extern "C" void compute() {
 	int threads_per_block_update = 256;
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
 
-	sumMatrices << <n_blocks_update, threads_per_block_update >> > (d_accels, d_hVel, d_hPos);
+	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
+	cudaDeviceSynchronize();
 
 	cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
 	cudaMemcpy(hVel, d_hVel , NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
@@ -86,5 +87,4 @@ extern "C" void compute() {
 	cudaFree(d_hPos);
 	cudaFree(d_hVel);
 	cudaFree(d_mass);
-	cudaDeviceSynchronize();
 }

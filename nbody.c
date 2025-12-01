@@ -76,6 +76,7 @@ void randomFill(int start, int count)
 //Side Effects: Modifies the file handle by writing to it.
 void printSystem(FILE* handle){
 	int i,j;
+	fprintf(handle, "\n\nSYSTEM STATE:\n\n");
 	for (i=0;i<NUMENTITIES;i++){
 		fprintf(handle,"pos=(");
 		for (j=0;j<3;j++){

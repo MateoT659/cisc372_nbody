@@ -86,4 +86,5 @@ extern "C" void compute() {
 	cudaFree(d_hPos);
 	cudaFree(d_hVel);
 	cudaFree(d_mass);
+	cudaDeviceSynchronize();
 }

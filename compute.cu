@@ -90,9 +90,6 @@ extern "C" void compute() {
 
 	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
 	gpuErrchk(cudaDeviceSynchronize());
-
-	gpuErrchk(cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
-	gpuErrchk(cudaMemcpy(hVel, d_hVel , NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
 	
 	cudaFree(d_values);
 	cudaFree(d_accels);
@@ -100,10 +97,15 @@ extern "C" void compute() {
 
 extern "C" void initDeviceMemory(int numObjects)
 {
+	//allocate memory on device
 	cudaMalloc(&d_hVel, sizeof(vector3) * numObjects);
 	cudaMalloc(&d_hPos, sizeof(vector3) * numObjects);
 	cudaMalloc(&d_mass, sizeof(vector3) * numObjects);
-
+	
+	//transfer generated values to device
+	cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice);
 }
 
 //freeHostMemory: Free storage allocated by a previous call to initHostMemory
@@ -112,6 +114,11 @@ extern "C" void initDeviceMemory(int numObjects)
 //Side Effects: Frees the memory allocated to global variables hVel, hPos, and mass.
 extern "C" void freeDeviceMemory()
 {
+	//transfer memory back to host
+	cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
+
+	//free memory on device
 	cudaFree(d_hVel);
 	cudaFree(d_hPos);
 	cudaFree(d_mass);

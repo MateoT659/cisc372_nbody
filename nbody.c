@@ -94,25 +94,32 @@ int main(int argc, char **argv)
 {
 	clock_t t0=clock();
 	int t_now;
+
 	//srand(time(NULL));
 	srand(1234);
+	
 	initHostMemory(NUMENTITIES);
-	initDeviceMemory(NUMENTITIES);
 	planetFill();
 	randomFill(NUMPLANETS + 1, NUMASTEROIDS);
+	
+	initDeviceMemory(NUMENTITIES);
 	//now we have a system.
-	#ifdef DEBUG
+
+#ifdef DEBUG
 	printSystem(stdout);
-	#endif
+#endif
+
 	for (t_now=0;t_now<INTERVAL;t_now+=INTERVAL){
 		compute();
 	}
 	clock_t t1=clock()-t0;
+	
+	freeDeviceMemory();
+
 #ifdef DEBUG
 	printSystem(stdout);
 #endif
 	printf("This took a total time of %f seconds\n",(double)t1/CLOCKS_PER_SEC);
 
 	freeHostMemory();
-	freeDeviceMemory();
 }

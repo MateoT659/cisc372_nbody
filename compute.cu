@@ -7,9 +7,6 @@
 vector3 *d_values;
 vector3 **d_accels;
 
-int count;
-int* d_count;
-
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
 {
@@ -30,7 +27,7 @@ void initAccels(vector3** accels, vector3* values) {
 }
 
 __global__
-void pairwiseAccels(vector3** accels, vector3* hPos, double* mass, int *d_count) {
+void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y;
 	if (i < NUMENTITIES && j < NUMENTITIES) {
@@ -46,11 +43,10 @@ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass, int *d_count)
 			FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
 		}
 	}
-	if (i == 0 && j == 0) *d_count += 1;
 }
 
 __global__
-void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos, int* d_count) {
+void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if (i < NUMENTITIES) {
@@ -66,7 +62,6 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos, int* d_count) {
 			hPos[i][k] += hVel[i][k] * INTERVAL;
 		}
 	}
-	if (i == 0) *d_count += 1;
 }
 
 extern "C" void compute() {
@@ -76,14 +71,14 @@ extern "C" void compute() {
 	dim3 n_blocks_PWA((NUMENTITIES + threads_per_block_PWA.x - 1) / threads_per_block_PWA.x, (NUMENTITIES + threads_per_block_PWA.y - 1) / threads_per_block_PWA.y);
 
 
-	pairwiseAccels<<<n_blocks_PWA, threads_per_block_PWA>>>(d_accels, d_hPos, d_mass, d_count);
+	pairwiseAccels<<<n_blocks_PWA, threads_per_block_PWA>>>(d_accels, d_hPos, d_mass);
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
 	int threads_per_block_update = 256;
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
 
-	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos, d_count);
+	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
 	gpuErrchk(cudaDeviceSynchronize());
 	
 }
@@ -108,10 +103,6 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
 
-	count = 0;
-
-	cudaMalloc(&d_count, sizeof(int));
-	cudaMemcpy(d_count, &count, sizeof(int), cudaMemcpyHostToDevice);
 }
 
 //freeHostMemory: Free storage allocated by a previous call to initHostMemory
@@ -131,8 +122,4 @@ extern "C" void freeDeviceMemory()
 	gpuErrchk(cudaFree(d_values));
 	gpuErrchk(cudaFree(d_accels));
 
-	cudaMemcpy(&count, d_count, sizeof(int), cudaMemcpyDeviceToHost);
-	cudaFree(d_count);
-
-	printf("%d", count);
 }

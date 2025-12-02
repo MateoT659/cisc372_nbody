@@ -103,10 +103,10 @@ int main(int argc, char** argv)
 	printSystem(stdout);
 #endif
 	int i = 0;
-	for (t_now = 0; t_now < INTERVAL*5; t_now += INTERVAL) {
+	for (t_now = 0; t_now < INTERVAL*10; t_now += INTERVAL) {
 		compute();
 		i++;
-		fprintf(stderr, "\n Completed %d intervals", i);
+		fprintf(stderr, "Completed %d intervals\n", i);
 	}
 	clock_t t1 = clock() - t0;
 #ifdef DEBUG

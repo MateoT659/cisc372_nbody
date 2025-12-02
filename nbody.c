@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <cuda_runtime.h> // <--- add
 #include "vector.h"
 #include "config.h"
 #include "planets.h"
@@ -12,15 +13,37 @@ vector3 *hVel, *d_hVel;
 vector3 *hPos, *d_hPos;
 double *mass, *d_mass;
 
+static void printCudaAtExit(void)
+{
+    // Print last recorded device error
+    cudaError_t last = cudaGetLastError();
+    if (last != cudaSuccess) {
+        fprintf(stderr, "cudaGetLastError() at exit: %s (%s)\n",
+                cudaGetErrorName(last), cudaGetErrorString(last));
+        fflush(stderr);
+    }
+
+    // Try an explicit device reset and report its result
+    cudaError_t resetErr = cudaDeviceReset();
+    if (resetErr != cudaSuccess) {
+        fprintf(stderr, "cudaDeviceReset() at exit: %s (%s)\n",
+                cudaGetErrorName(resetErr), cudaGetErrorString(resetErr));
+        fflush(stderr);
+    } else {
+        fprintf(stderr, "cudaDeviceReset() succeeded\n");
+        fflush(stderr);
+    }
+}
+
 //initHostMemory: Create storage for numObjects entities in our system
 //Parameters: numObjects: number of objects to allocate
 //Returns: None
 //Side Effects: Allocates memory in the hVel, hPos, and mass global variables
 void initHostMemory(int numObjects)
 {
-	hVel = (vector3 *)malloc(sizeof(vector3) * numObjects);
-	hPos = (vector3 *)malloc(sizeof(vector3) * numObjects);
-	mass = (double *)malloc(sizeof(double) * numObjects);
+    hVel = (vector3 *)malloc(sizeof(vector3) * numObjects);
+    hPos = (vector3 *)malloc(sizeof(vector3) * numObjects);
+    mass = (double *)malloc(sizeof(double) * numObjects);
 }
 
 //freeHostMemory: Free storage allocated by a previous call to initHostMemory
@@ -92,35 +115,54 @@ void printSystem(FILE* handle){
 
 int main(int argc, char **argv)
 {
-	//PUT T0 HERE AT THE END
-	int t_now;
+        // Register the exit hook early so it runs after normal teardown
+    if (atexit(printCudaAtExit) != 0) {
+        fprintf(stderr, "Failed to register atexit handler\n");
+    }
 
-	//srand(time(NULL));
-	srand(1234);
-	
-	initHostMemory(NUMENTITIES);
-	planetFill();
-	randomFill(NUMPLANETS + 1, NUMASTEROIDS);
-	
-	initDeviceMemory(NUMENTITIES);
-	//now we have a system.
+    //PUT T0 HERE AT THE END
+    int t_now;
 
-#ifdef DEBUG
-	printSystem(stdout);
-#endif
-	clock_t t0 = clock();
+    //srand(time(NULL));
+    srand(1234);
 
-	for (t_now=0;t_now<DURATION;t_now+=INTERVAL){
-		compute();
-	}
-	clock_t t1=clock()-t0;
-	
-	freeDeviceMemory();
+    initHostMemory(NUMENTITIES);
+    planetFill();
+    randomFill(NUMPLANETS + 1, NUMASTEROIDS);
+
+    initDeviceMemory(NUMENTITIES);
+    //now we have a system.
 
 #ifdef DEBUG
-	printSystem(stdout);
+    printSystem(stdout);
 #endif
-	printf("This took a total time of %f seconds\n",(double)t1/CLOCKS_PER_SEC);
+    clock_t t0 = clock();
 
-	freeHostMemory();
+    for (t_now=0;t_now<DURATION;t_now+=INTERVAL){
+        compute();
+    }
+    clock_t t1=clock()-t0;
+
+    // Synchronize and check for errors right before teardown
+    {
+        cudaError_t e = cudaDeviceSynchronize();
+        if (e != cudaSuccess) {
+            fprintf(stderr, "cudaDeviceSynchronize() after compute loop: %s (%s)\n",
+                    cudaGetErrorName(e), cudaGetErrorString(e));
+            fflush(stderr);
+        } else {
+            fprintf(stderr, "cudaDeviceSynchronize() OK after compute loop\n");
+            fflush(stderr);
+        }
+    }
+
+    freeDeviceMemory();
+
+#ifdef DEBUG
+    printSystem(stdout);
+#endif
+    printf("This took a total time of %f seconds\n",(double)t1/CLOCKS_PER_SEC);
+
+    freeHostMemory();
+    return 0;
 }

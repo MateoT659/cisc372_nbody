@@ -1,4 +1,4 @@
-FLAGS= -DDEBUG
+FLAGS= 
 LIBS= -lm
 ALWAYS_REBUILD=makefile
 CC=nvcc

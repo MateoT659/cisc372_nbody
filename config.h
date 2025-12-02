@@ -13,7 +13,7 @@
 #define MAX_DISTANCE 5000.0
 #define MAX_VELOCITY 50000.0
 #define MAX_MASS 938e18  //approximate mass of ceres.
-#define DURATION (10*DAY)
+#define DURATION (10*YEAR)
 #define INTERVAL DAY
 //End Configurable
 

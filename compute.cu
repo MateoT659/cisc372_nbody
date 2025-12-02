@@ -4,6 +4,9 @@
 #include "vector.h"
 #include "config.h"
 
+vector3 *d_values;
+vector3 **d_accels;
+
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
 {
@@ -62,17 +65,6 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
 
-	vector3* d_values;
-	vector3** d_accels;
-
-	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
-	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
-
-	int threads_per_block_init = NUMENTITIES;
-
-	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
-	gpuErrchk(cudaDeviceSynchronize());
-
 	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
@@ -91,8 +83,6 @@ extern "C" void compute() {
 	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
 	gpuErrchk(cudaDeviceSynchronize());
 	
-	cudaFree(d_values);
-	cudaFree(d_accels);
 }
 
 extern "C" void initDeviceMemory(int numObjects)
@@ -101,7 +91,14 @@ extern "C" void initDeviceMemory(int numObjects)
 	cudaMalloc(&d_hVel, sizeof(vector3) * numObjects);
 	cudaMalloc(&d_hPos, sizeof(vector3) * numObjects);
 	cudaMalloc(&d_mass, sizeof(vector3) * numObjects);
-	
+
+	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
+	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
+
+	int threads_per_block_init = NUMENTITIES;
+	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
+	gpuErrchk(cudaDeviceSynchronize());
+
 	//transfer generated values to device
 	cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
@@ -118,8 +115,11 @@ extern "C" void freeDeviceMemory()
 	cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
 	cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
 
+
 	//free memory on device
 	cudaFree(d_hVel);
 	cudaFree(d_hPos);
 	cudaFree(d_mass);
+	cudaFree(d_values);
+	cudaFree(d_accels);
 }

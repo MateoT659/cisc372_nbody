@@ -10,6 +10,27 @@ void initAccels(vector3** accels, vector3* values) {
 		accels[i] = &values[i * NUMENTITIES];
 	}
 }
+
+__global__
+void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	int j;
+	if (i < NUMENTITIES) {
+		for (j = 0; j < NUMENTITIES; j++) {
+			if (i == j) {
+				FILL_VECTOR(accels[i][j], 0, 0, 0);
+			}
+			else {
+				vector3 distance;
+				for (int k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
+				double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
+				double magnitude = sqrt(magnitude_sq);
+				double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
+				FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
+			}
+		}
+	}
+}
 //compute: Updates the positions and locations of the objects in the system based on gravity.
 //Parameters: None
 //Returns: None
@@ -26,7 +47,16 @@ extern "C" void compute() {
 
 	int blockSize = 256;
 	int numBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
-	initAccels << <numBlocks, blockSize >> > (d_accels, d_values);
+	initAccels<<<numBlocks, blockSize >> > (d_accels, d_values);
+
+
+	cudaMalloc(&d_hPos, sizeof(vector3*) * NUMENTITIES);
+	cudaMalloc(&d_hVel, sizeof(vector3*) * NUMENTITIES);
+	cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES);
+
+	cudaMemcpy(&hPos, d_hPos, sizeof(vector3*) * NUMENTITIES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&hVel, d_hVel, sizeof(vector3*) * NUMENTITIES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&mass, d_mass, sizeof(double) * NUMENTITIES, cudaMemcpyDeviceToHost);
 
 	vector3* values = (vector3*)malloc(sizeof(vector3) * NUMENTITIES * NUMENTITIES);
 	vector3** accels = (vector3**)malloc(sizeof(vector3*) * NUMENTITIES);
@@ -34,6 +64,12 @@ extern "C" void compute() {
 	for (i = 0; i < NUMENTITIES; i++)
 		accels[i] = &values[i * NUMENTITIES];
 
+
+
+	blockSize = 256;
+	numBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
+
+	pairwiseAccels<<<numBlocks, blockSize>>>(d_accels, d_hPos, d_mass);
 
 	//first compute the pairwise accelerations.  Effect is on the first argument.
 	for (i = 0; i < NUMENTITIES; i++) {
@@ -72,4 +108,12 @@ extern "C" void compute() {
 
 	cudaFree(d_accels);
 	cudaFree(d_values);
+
+	cudaMemcpy(d_hPos, &hPos, sizeof(vector3*) * NUMENTITIES, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_hVel, &hVel, sizeof(vector3*) * NUMENTITIES, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_mass, &mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice);
+
+	cudaFree(d_hPos);
+	cudaFree(d_hVel);
+	cudaFree(d_mass);
 }

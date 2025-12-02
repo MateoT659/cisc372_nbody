@@ -56,6 +56,7 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	//compute the new velocity based on the acceleration and time interval
 	for (k = 0; k < 3; k++) {
 		hVel[i][k] += accel_sum[k] * INTERVAL;
+		hPos[i][k] += hVel[i][k] * INTERVAL;
 	}
 }
 

@@ -12,10 +12,11 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 {
 	if (code != cudaSuccess)
 	{
-		fprintf(stdout, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
 		if (abort) exit(code);
 	}
 }
+#define gpuCheckLastError() gpuErrchk(cudaGetLastError())
 
 //serial version
 __global__
@@ -72,6 +73,7 @@ extern "C" void compute() {
 
 
 	pairwiseAccels<<<n_blocks_PWA, threads_per_block_PWA>>>(d_accels, d_hPos, d_mass);
+	gpuCheckLastError();
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
@@ -79,6 +81,7 @@ extern "C" void compute() {
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
 
 	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
+	gpuCheckLastError();
 	gpuErrchk(cudaDeviceSynchronize());
 	
 }
@@ -88,20 +91,20 @@ extern "C" void initDeviceMemory(int numObjects)
 	//allocate memory on device
 	gpuErrchk(cudaMalloc(&d_hVel, sizeof(vector3) * numObjects));
 	gpuErrchk(cudaMalloc(&d_hPos, sizeof(vector3) * numObjects));
-	gpuErrchk(cudaMalloc(&d_mass, sizeof(vector3) * numObjects));
+	gpuErrchk(cudaMalloc(&d_mass, sizeof(double) * numObjects));
 
-	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
-	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
+	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * numObjects * numObjects));
+	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * numObjects));
 
 	int threads_per_block_init = 256;
-	int n_blocks_init = (NUMENTITIES + threads_per_block_init - 1) / threads_per_block_init;
+	int n_blocks_init = (numObjects + threads_per_block_init - 1) / threads_per_block_init;
 	initAccels<<<n_blocks_init, threads_per_block_init>>>(d_accels, d_values);
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//transfer generated values to device
-	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
-	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
-	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_hPos, hPos, numObjects * sizeof(vector3), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_hVel, hVel, numObjects * sizeof(vector3), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_mass, mass, numObjects * sizeof(double), cudaMemcpyHostToDevice));
 
 }
 

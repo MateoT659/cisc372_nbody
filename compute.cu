@@ -61,7 +61,9 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
+	int check = 0;
 
+	printf("Checkpoint %d\n", check++);
 	vector3* d_values;
 	vector3** d_accels;
 
@@ -69,11 +71,13 @@ extern "C" void compute() {
 	cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES);
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
+	printf("Checkpoint %d\n", check++);
 
 	int threads_per_block_init = NUMENTITIES;
 
 	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
 	gpuErrchk(cudaDeviceSynchronize())
+		printf("Checkpoint %d\n", check++);
 
 
 		cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
@@ -82,6 +86,7 @@ extern "C" void compute() {
 	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
+	printf("Checkpoint %d\n", check++);
 
 
 	dim3 threads_per_block_PWA(16, 16);
@@ -91,19 +96,23 @@ extern "C" void compute() {
 
 	gpuErrchk(cudaDeviceSynchronize());
 
+	printf("Checkpoint %d\n", check++);
 
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
 	int threads_per_block_update = 256;
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
+	printf("Checkpoint %d\n", check++);
 
 	sumMatrices << <n_blocks_update, threads_per_block_update >> > (d_accels, d_hVel, d_hPos);
 	cudaDeviceSynchronize();
 	gpuErrchk(cudaDeviceSynchronize());
+	printf("Checkpoint %d\n", check++);
 
 	cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
 	cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
 	gpuErrchk(cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
 	gpuErrchk(cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
+	printf("Checkpoint %d\n", check++);
 
 	cudaFree(d_values);
 	cudaFree(d_accels);

@@ -92,7 +92,7 @@ void printSystem(FILE* handle){
 
 int main(int argc, char **argv)
 {
-	clock_t t0=clock();
+	//PUT T0 HERE AT THE END
 	int t_now;
 
 	//srand(time(NULL));
@@ -108,6 +108,7 @@ int main(int argc, char **argv)
 #ifdef DEBUG
 	printSystem(stdout);
 #endif
+	clock_t t0 = clock();
 
 	for (t_now=0;t_now<DURATION;t_now+=INTERVAL){
 		compute();

@@ -92,8 +92,8 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
 
-	int threads_per_block_init = NUMENTITIES;
-	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
+	int threads_per_block_init = 256;
+	initAccels<<<1, threads_per_block_init>>>(d_accels, d_values);
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//transfer generated values to device

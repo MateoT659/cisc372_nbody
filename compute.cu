@@ -67,9 +67,6 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 }
 
 extern "C" void compute() {
-	int check = 0;
-	printf("Checkpoint %d\n", check++);
-
 	// allocate local device storage for this compute invocation
 	vector3* d_values = NULL;
 	vector3** d_accels = NULL;
@@ -78,7 +75,6 @@ extern "C" void compute() {
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * (size_t)NUMENTITIES * (size_t)NUMENTITIES));
 	// allocate array of device pointers (vector3*)
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3*) * (size_t)NUMENTITIES));
-	printf("Checkpoint %d\n", check++);
 
 	// init pointer array on device from host (safe pattern)
 	int threads_per_block_init = 256;
@@ -86,35 +82,29 @@ extern "C" void compute() {
 	initAccels << <n_blocks_init, threads_per_block_init >> > (d_accels, d_values, NUMENTITIES);
 	gpuCheckLastError();
 	gpuErrchk(cudaDeviceSynchronize());
-	printf("Checkpoint %d\n", check++);
 
 	// copy inputs (ensure these globals were allocated previously by initDeviceMemory)
 	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
-	printf("Checkpoint %d\n", check++);
 
 	dim3 threads_per_block_PWA(16, 16);
 	dim3 n_blocks_PWA((NUMENTITIES + threads_per_block_PWA.x - 1) / threads_per_block_PWA.x,
 		(NUMENTITIES + threads_per_block_PWA.y - 1) / threads_per_block_PWA.y);
 
-	pairwiseAccels << <n_blocks_PWA, threads_per_block_PWA >> > (d_accels, d_hPos, d_mass);
+	pairwiseAccels<<<n_blocks_PWA, threads_per_block_PWA>>>(d_accels, d_hPos, d_mass);
 	gpuCheckLastError();
 	gpuErrchk(cudaDeviceSynchronize());
-	printf("Checkpoint %d\n", check++);
 
 	int threads_per_block_update = 256;
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
-	printf("Checkpoint %d\n", check++);
 
-	sumMatrices << <n_blocks_update, threads_per_block_update >> > (d_accels, d_hVel, d_hPos);
+	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
 	gpuCheckLastError();
 	gpuErrchk(cudaDeviceSynchronize());
-	printf("Checkpoint %d\n", check++);
 
 	gpuErrchk(cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
 	gpuErrchk(cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
-	printf("Checkpoint %d\n", check++);
 
 	gpuErrchk(cudaFree(d_values));
 	gpuErrchk(cudaFree(d_accels));

@@ -44,16 +44,18 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	int i, j, k;
-	for (i = 0; i < NUMENTITIES; i++) {
-		vector3 accel_sum = { 0,0,0 };
-		for (j = 0; j < NUMENTITIES; j++) {
-			for (k = 0; k < 3; k++)
-				accel_sum[k] += accels[i][j][k];
-		}
-		//compute the new velocity based on the acceleration and time interval
-		for (k = 0; k < 3; k++) {
-			hVel[i][k] += accel_sum[k] * INTERVAL;
-		}
+
+	i = blockIdx.x * blockDim.x + threadIdx.x;
+	if (i >= NUMENTITIES) return;
+
+	vector3 accel_sum = { 0,0,0 };
+	for (j = 0; j < NUMENTITIES; j++) {
+		for (k = 0; k < 3; k++)
+			accel_sum[k] += accels[i][j][k];
+	}
+	//compute the new velocity based on the acceleration and time interval
+	for (k = 0; k < 3; k++) {
+		hVel[i][k] += accel_sum[k] * INTERVAL;
 	}
 }
 
@@ -88,7 +90,10 @@ extern "C" void compute() {
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 
-	accelSums<<<1, 1>>>(d_accels, d_hPos, d_hVel);
+
+
+
+	accelSums<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_hVel);
 	EC(cudaDeviceSynchronize());
 
 	EC(cudaFree(d_values));

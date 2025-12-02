@@ -10,8 +10,8 @@
 //Side Effect: Modifies the hPos and hVel arrays with the new positions and accelerations after 1 INTERVAL
 
 __global__ void initAccels(vector3** accels, vector3* values) {
-	int i;
-	for (i = 0; i < NUMENTITIES; i++) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if (i < NUMENTITIES) {
 		accels[i] = &values[i * NUMENTITIES];
 	}
 }
@@ -67,7 +67,9 @@ extern "C" void compute() {
 	cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES);
 	cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice);
 
-	initAccels<<<1, 1 >>>(d_accels, d_values);
+	int blockSize = 256;
+	int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
+	initAccels<<<nBlocks, blockSize>>>(d_accels, d_values);
 
 	pairwiseAccels<<<1, 1>>>(d_accels, d_hPos, d_mass);
 

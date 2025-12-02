@@ -21,8 +21,10 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 //serial version
 __global__
 void initAccels(vector3** accels, vector3* values) {
-	int i = threadIdx.x;
-	accels[i] = &values[i * NUMENTITIES];
+	int i = threadIdx.x + blockIdx.x * blockDim.x;
+	if (i < NUMENTITIES) {
+		accels[i] = &values[i * NUMENTITIES];
+	}
 }
 
 __global__
@@ -93,7 +95,8 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
 
 	int threads_per_block_init = 256;
-	initAccels<<<1, threads_per_block_init>>>(d_accels, d_values);
+	int n_blocks_init = (NUMENTITIES + threads_per_block_init - 1) / threads_per_block_init;
+	initAccels<<<n_blocks_init, threads_per_block_init>>>(d_accels, d_values);
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//transfer generated values to device

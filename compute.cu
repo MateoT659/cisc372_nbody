@@ -12,18 +12,18 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 {
 	if (code != cudaSuccess)
 	{
-		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-		if (abort) exit(code);
+		fprintf(stderr, "GPUassert: %s (%d) %s %d\n", cudaGetErrorString(code), (int)code, file, line);
+		if (abort) exit((int)code);
 	}
 }
 #define gpuCheckLastError() gpuErrchk(cudaGetLastError())
 
 //serial version
 __global__
-void initAccels(vector3** accels, vector3* values) {
+void initAccels(vector3** accels, vector3* values, int n) {
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
-	if (i < NUMENTITIES) {
-		accels[i] = &values[i * NUMENTITIES];
+	if (i < n) {
+		accels[i] = &values[i * n];
 	}
 }
 
@@ -93,12 +93,15 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMalloc(&d_hPos, sizeof(vector3) * numObjects));
 	gpuErrchk(cudaMalloc(&d_mass, sizeof(double) * numObjects));
 
+	// flat storage for N x N acceleration vectors
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * numObjects * numObjects));
-	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * numObjects));
+	// allocate array of device pointers (vector3*)
+	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3*) * numObjects));
 
 	int threads_per_block_init = 256;
 	int n_blocks_init = (numObjects + threads_per_block_init - 1) / threads_per_block_init;
-	initAccels<<<n_blocks_init, threads_per_block_init>>>(d_accels, d_values);
+	initAccels<<<n_blocks_init, threads_per_block_init>>>(d_accels, d_values, numObjects);
+	gpuCheckLastError();
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//transfer generated values to device

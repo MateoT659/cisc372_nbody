@@ -111,7 +111,22 @@ extern "C" void compute() {
 	
 	cudaFree(d_values);
 	cudaFree(d_accels);
-	cudaFree(d_hPos);
+}
+
+extern "C" void initDeviceMemory(int numObjects)
+{
+	cudaMalloc(&d_hVel, sizeof(vector3) * numObjects);
+	cudaMalloc(&d_hPos, sizeof(vector3) * numObjects);
+	cudaMalloc(&d_mass, sizeof(vector3) * numObjects);
+}
+
+//freeHostMemory: Free storage allocated by a previous call to initHostMemory
+//Parameters: None
+//Returns: None
+//Side Effects: Frees the memory allocated to global variables hVel, hPos, and mass.
+extern "C" void freeDeviceMemory()
+{
 	cudaFree(d_hVel);
+	cudaFree(d_hPos);
 	cudaFree(d_mass);
 }

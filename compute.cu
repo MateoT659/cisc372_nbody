@@ -8,7 +8,7 @@ vector3 *d_values;
 vector3 **d_accels;
 
 int count;
-int *d_count;
+int* d_count;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
@@ -30,7 +30,7 @@ void initAccels(vector3** accels, vector3* values) {
 }
 
 __global__
-void pairwiseAccels(vector3** accels, vector3* hPos, double* mass, int* c) {
+void pairwiseAccels(vector3** accels, vector3* hPos, double* mass, int *d_count) {
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 	int j = threadIdx.y + blockIdx.y * blockDim.y;
 	if (i < NUMENTITIES && j < NUMENTITIES) {
@@ -46,11 +46,11 @@ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass, int* c) {
 			FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
 		}
 	}
-	*c += 1;
+	if (i == 0 && j == 0) *d_count += 1;
 }
 
 __global__
-void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos, int *c) {
+void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos, int* d_count) {
 	int i = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if (i < NUMENTITIES) {
@@ -66,7 +66,7 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos, int *c) {
 			hPos[i][k] += hVel[i][k] * INTERVAL;
 		}
 	}
-	*c += 1;
+	if (i == 0) *d_count += 1;
 }
 
 extern "C" void compute() {

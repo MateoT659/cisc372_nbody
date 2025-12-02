@@ -27,6 +27,8 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	i = blockIdx.x * blockDim.x + threadIdx.x;
 	j = blockIdx.y * blockDim.y + threadIdx.y;
 
+	if (i >= NUMENTITIES || j >= NUMENTITIES) return;
+
 	if (i == j) {
 		FILL_VECTOR(accels[i][j], 0, 0, 0);
 	}

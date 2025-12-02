@@ -64,20 +64,27 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
+	int check = 0;
+	printf("checkpoint %d", ++check);
 
 	dim3 threads_per_block_PWA(16, 16);
 	dim3 n_blocks_PWA((NUMENTITIES + threads_per_block_PWA.x - 1) / threads_per_block_PWA.x, (NUMENTITIES + threads_per_block_PWA.y - 1) / threads_per_block_PWA.y);
 
+	printf("checkpoint %d", ++check);
+
 	pairwiseAccels << <n_blocks_PWA, threads_per_block_PWA >> > (d_accels, d_hPos, d_mass);
 	gpuErrchk(cudaDeviceSynchronize());
+	printf("checkpoint %d", ++check);
 
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
 	int threads_per_block_update = 256;
 	int n_blocks_update = (NUMENTITIES + threads_per_block_update - 1) / threads_per_block_update;
+	printf("checkpoint %d", ++check);
 
 	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
 	gpuErrchk(cudaDeviceSynchronize());
 	
+	printf("checkpoint %d", ++check);
 }
 
 extern "C" void initDeviceMemory(int numObjects)

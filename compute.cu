@@ -65,11 +65,6 @@ void sumMatrices(vector3** accels, vector3* hVel, vector3* hPos) {
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
 
-	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
-	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
-	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
-
-
 	dim3 threads_per_block_PWA(16, 16);
 	dim3 n_blocks_PWA((NUMENTITIES + threads_per_block_PWA.x - 1) / threads_per_block_PWA.x, (NUMENTITIES + threads_per_block_PWA.y - 1) / threads_per_block_PWA.y);
 
@@ -88,9 +83,9 @@ extern "C" void compute() {
 extern "C" void initDeviceMemory(int numObjects)
 {
 	//allocate memory on device
-	cudaMalloc(&d_hVel, sizeof(vector3) * numObjects);
-	cudaMalloc(&d_hPos, sizeof(vector3) * numObjects);
-	cudaMalloc(&d_mass, sizeof(vector3) * numObjects);
+	gpuErrchk(cudaMalloc(&d_hVel, sizeof(vector3) * numObjects));
+	gpuErrchk(cudaMalloc(&d_hPos, sizeof(vector3) * numObjects));
+	gpuErrchk(cudaMalloc(&d_mass, sizeof(vector3) * numObjects));
 
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
@@ -100,9 +95,9 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaDeviceSynchronize());
 
 	//transfer generated values to device
-	cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice);
+	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
+	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
 }
 
 //freeHostMemory: Free storage allocated by a previous call to initHostMemory
@@ -112,14 +107,13 @@ extern "C" void initDeviceMemory(int numObjects)
 extern "C" void freeDeviceMemory()
 {
 	//transfer memory back to host
-	cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
-	cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost);
-
+	gpuErrchk(cudaMemcpy(hPos, d_hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
+	gpuErrchk(cudaMemcpy(hVel, d_hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyDeviceToHost));
 
 	//free memory on device
-	cudaFree(d_hVel);
-	cudaFree(d_hPos);
-	cudaFree(d_mass);
-	cudaFree(d_values);
-	cudaFree(d_accels);
+	gpuErrchk(cudaFree(d_hVel));
+	gpuErrchk(cudaFree(d_hPos));
+	gpuErrchk(cudaFree(d_mass));
+	gpuErrchk(cudaFree(d_values));
+	gpuErrchk(cudaFree(d_accels));
 }

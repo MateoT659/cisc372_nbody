@@ -23,20 +23,20 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 
 __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	int i, j, k;
-	for (i = 0; i < NUMENTITIES; i++) {
-		for (j = 0; j < NUMENTITIES; j++) {
-			if (i == j) {
-				FILL_VECTOR(accels[i][j], 0, 0, 0);
-			}
-			else {
-				vector3 distance;
-				for (k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
-				double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
-				double magnitude = sqrt(magnitude_sq);
-				double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
-				FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
-			}
-		}
+	
+	i = blockIdx.x * blockDim.x + threadIdx.x;
+	j = blockIdx.y * blockDim.y + threadIdx.y;
+
+	if (i == j) {
+		FILL_VECTOR(accels[i][j], 0, 0, 0);
+	}
+	else {
+		vector3 distance;
+		for (k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
+		double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
+		double magnitude = sqrt(magnitude_sq);
+		double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
+		FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
 	}
 }
 
@@ -77,7 +77,13 @@ extern "C" void compute() {
 	initAccels<<<nBlocks, blockSize>>>(d_accels, d_values);
 	EC(cudaDeviceSynchronize());
 
-	pairwiseAccels<<<1, 1>>>(d_accels, d_hPos, d_mass);
+	dim3 blockSizeGrid(16, 16);
+	dim3 nBlocksGrid(
+		(NUMENTITIES + blockSizeGrid.x - 1) / blockSizeGrid.x,
+		(NUMENTITIES + blockSizeGrid.y - 1) / blockSizeGrid.y
+	);
+
+	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 
 	accelSums<<<1, 1>>>(d_accels, d_hPos, d_hVel);

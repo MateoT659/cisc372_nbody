@@ -103,14 +103,11 @@ int main(int argc, char** argv)
 	printSystem(stdout);
 #endif
 	initDeviceMemory(NUMENTITIES);
-	int i = 0;
-	for (t_now = 0; t_now < INTERVAL*1000; t_now += INTERVAL) {
+	for (t_now = 0; t_now < DURATION; t_now += INTERVAL) {
 		compute();
-		i++;
-		fprintf(stderr, "Completed %d intervals\n", i);
 	}
-	clock_t t1 = clock() - t0;
 	freeDeviceMemory(NUMENTITIES);
+	clock_t t1 = clock() - t0;
 
 #ifdef DEBUG
 	printSystem(stdout);

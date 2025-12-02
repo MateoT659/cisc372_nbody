@@ -106,9 +106,7 @@ int main(int argc, char** argv)
 	for (t_now = 0; t_now < DURATION; t_now += INTERVAL) {
 		compute();
 		i++;
-		if (i % 5 == 0) {
-			printf("\n Completed %d intervals", i);
-		}
+		printf("\n Completed %d intervals", i);
 	}
 	clock_t t1 = clock() - t0;
 #ifdef DEBUG

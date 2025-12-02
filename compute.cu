@@ -71,6 +71,7 @@ extern "C" void compute() {
 
 
 	pairwiseAccels << <n_blocks_PWA, threads_per_block_PWA >> > (d_accels, d_hPos, d_mass);
+	gpuErrchk(cudaDeviceSynchronize());
 
 	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
 	int threads_per_block_update = 256;
@@ -91,7 +92,7 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
 
-	int threads_per_block_init = NUMENTITIES+1;
+	int threads_per_block_init = NUMENTITIES;
 	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
 	gpuErrchk(cudaDeviceSynchronize());
 

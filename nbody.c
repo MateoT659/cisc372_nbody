@@ -109,8 +109,9 @@ int main(int argc, char** argv)
 		i++;
 		fprintf(stderr, "Completed %d intervals\n", i);
 	}
-	freeDeviceMemory(NUMENTITIES);
 	clock_t t1 = clock() - t0;
+	freeDeviceMemory(NUMENTITIES);
+
 #ifdef DEBUG
 	printSystem(stdout);
 #endif

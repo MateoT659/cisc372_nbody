@@ -115,6 +115,8 @@ int main(int argc, char **argv)
 	}
 	clock_t t1=clock()-t0;
 	
+	printf("expected: %d", (DURATION) / (INTERVAL));
+
 	freeDeviceMemory();
 
 #ifdef DEBUG

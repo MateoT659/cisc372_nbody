@@ -67,14 +67,6 @@ extern "C" void compute() {
 	vector3** d_accels;
 	EC(cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES));
 
-	EC(cudaMalloc(&d_hPos, sizeof(vector3) * NUMENTITIES));
-	EC(cudaMemcpy(d_hPos, hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice));
-
-	EC(cudaMalloc(&d_hVel, sizeof(vector3) * NUMENTITIES));
-	EC(cudaMemcpy(d_hVel, hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice));
-
-	EC(cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES));
-	cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice);
 
 	int blockSize = 256;
 	int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
@@ -90,15 +82,25 @@ extern "C" void compute() {
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 
-
-
-
 	accelSums<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_hVel);
 	EC(cudaDeviceSynchronize());
 
+
 	EC(cudaFree(d_values));
 	EC(cudaFree(d_accels));
+}
 
+extern "C" void initDeviceMemory(int numEntities) {
+	EC(cudaMalloc(&d_hPos, sizeof(vector3) * NUMENTITIES));
+	EC(cudaMalloc(&d_hVel, sizeof(vector3) * NUMENTITIES));
+	EC(cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES));
+
+	EC(cudaMemcpy(d_hPos, hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice));
+	EC(cudaMemcpy(d_hVel, hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice));
+	EC(cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice));
+}
+
+extern "C" void freeDeviceMemory(int numEntities) {
 	EC(cudaMemcpy(hPos, d_hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost));
 	EC(cudaMemcpy(hVel, d_hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost));
 	EC(cudaMemcpy(mass, d_mass, sizeof(double) * NUMENTITIES, cudaMemcpyDeviceToHost));

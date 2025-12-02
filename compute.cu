@@ -73,7 +73,11 @@ extern "C" void compute() {
 
 	pairwiseAccels<<<1, 1>>>(d_accels, d_hPos, d_mass);
 
+	fprintf(stderr, "Finished pairwiseAccels\n");
+
 	accelSums<<<1, 1>>>(d_accels, d_hPos, d_hVel);
+	
+	fprintf(stderr, "Finished accelSums\n");
 
 	cudaFree(d_values);
 	cudaFree(d_accels);

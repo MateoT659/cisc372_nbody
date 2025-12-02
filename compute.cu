@@ -7,7 +7,6 @@
 vector3 *d_values;
 vector3 **d_accels;
 
-int iter;
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
@@ -79,7 +78,6 @@ extern "C" void compute() {
 
 	sumMatrices<<<n_blocks_update, threads_per_block_update>>>(d_accels, d_hVel, d_hPos);
 	gpuErrchk(cudaDeviceSynchronize());
-	iter++;
 	
 }
 
@@ -93,7 +91,7 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
 	gpuErrchk(cudaMalloc(&d_accels, sizeof(vector3) * NUMENTITIES));
 
-	int threads_per_block_init = NUMENTITIES;
+	int threads_per_block_init = NUMENTITIES+1;
 	initAccels << <1, threads_per_block_init >> > (d_accels, d_values);
 	gpuErrchk(cudaDeviceSynchronize());
 
@@ -101,7 +99,6 @@ extern "C" void initDeviceMemory(int numObjects)
 	gpuErrchk(cudaMemcpy(d_hPos, hPos, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_hVel, hVel, NUMENTITIES * sizeof(vector3), cudaMemcpyHostToDevice));
 	gpuErrchk(cudaMemcpy(d_mass, mass, NUMENTITIES * sizeof(double), cudaMemcpyHostToDevice));
-	iter = 0;
 }
 
 //freeHostMemory: Free storage allocated by a previous call to initHostMemory
@@ -120,5 +117,4 @@ extern "C" void freeDeviceMemory()
 	gpuErrchk(cudaFree(d_mass));
 	gpuErrchk(cudaFree(d_values));
 	gpuErrchk(cudaFree(d_accels));
-	printf("%d", iter);
 }

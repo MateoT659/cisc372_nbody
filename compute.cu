@@ -16,27 +16,8 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 	}
 }
 
-extern "C" void compute() {
-	//make an acceleration matrix which is NUMENTITIES squared in size;
+__global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	int i, j, k;
-	vector3* values = (vector3*)malloc(sizeof(vector3) * NUMENTITIES * NUMENTITIES);
-	vector3** accels = (vector3**)malloc(sizeof(vector3*) * NUMENTITIES);
-
-	vector3* d_values;
-	cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES);
-
-	vector3** d_accels;
-	cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES);
-
-	initAccels<<<1, 1 >>>(d_accels, d_values);
-
-	cudaFree(d_values);
-	cudaFree(d_accels);
-
-
-	for (i = 0; i < NUMENTITIES; i++)
-		accels[i] = &values[i * NUMENTITIES];
-	//first compute the pairwise accelerations.  Effect is on the first argument.
 	for (i = 0; i < NUMENTITIES; i++) {
 		for (j = 0; j < NUMENTITIES; j++) {
 			if (i == j) {
@@ -52,7 +33,10 @@ extern "C" void compute() {
 			}
 		}
 	}
-	//sum up the rows of our matrix to get effect on each entity, then update velocity and position.
+}
+
+__global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
+	int i, j, k;
 	for (i = 0; i < NUMENTITIES; i++) {
 		vector3 accel_sum = { 0,0,0 };
 		for (j = 0; j < NUMENTITIES; j++) {
@@ -60,12 +44,43 @@ extern "C" void compute() {
 				accel_sum[k] += accels[i][j][k];
 		}
 		//compute the new velocity based on the acceleration and time interval
-		//compute the new position based on the velocity and time interval
 		for (k = 0; k < 3; k++) {
 			hVel[i][k] += accel_sum[k] * INTERVAL;
-			hPos[i][k] += hVel[i][k] * INTERVAL;
 		}
 	}
-	free(accels);
-	free(values);
+}
+
+extern "C" void compute() {
+	//make an acceleration matrix which is NUMENTITIES squared in size;
+	vector3* d_values;
+	cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES);
+
+	vector3** d_accels;
+	cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES);
+
+	cudaMalloc(&d_hPos, sizeof(vector3) * NUMENTITIES);
+	cudaMemcpy(d_hPos, hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice);
+
+	cudaMalloc(&d_hVel, sizeof(vector3) * NUMENTITIES);
+	cudaMemcpy(d_hVel, hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice);
+	
+	cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES);
+	cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice);
+
+	initAccels<<<1, 1 >>>(d_accels, d_values);
+
+	pairwiseAccels<<<1, 1>>>(d_accels, d_hPos, d_mass);
+
+	accelSums<<<1, 1>>>(d_accels, d_hPos, d_hVel);
+
+	cudaFree(d_values);
+	cudaFree(d_accels);
+
+	cudaMemcpy(hPos, d_hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(hVel, d_hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(mass, d_mass, sizeof(double) * NUMENTITIES, cudaMemcpyDeviceToHost);
+
+	cudaFree(d_hPos);
+	cudaFree(d_hVel);
+	cudaFree(d_mass);
 }

@@ -10,7 +10,7 @@
 // represents the objects in the system.  Global variables
 vector3* hVel, * d_hVel;
 vector3* hPos, * d_hPos;
-double* mass, * d_mass;
+double* mass;
 
 //initHostMemory: Create storage for numObjects entities in our system
 //Parameters: numObjects: number of objects to allocate
@@ -98,18 +98,19 @@ int main(int argc, char** argv)
 	initHostMemory(NUMENTITIES);
 	planetFill();
 	randomFill(NUMPLANETS + 1, NUMASTEROIDS);
-	initDeviceMemory(NUMENTITIES);
 	//now we have a system.
 #ifdef DEBUG
 	printSystem(stdout);
 #endif
+	int i = 0;
 	for (t_now = 0; t_now < DURATION; t_now += INTERVAL) {
 		compute();
+		i++;
+		if (i % 100 == 0) {
+			printf("\n Completed %d intervals", i);
+		}
 	}
 	clock_t t1 = clock() - t0;
-
-	freeDeviceMemory(NUMENTITIES);
-
 #ifdef DEBUG
 	printSystem(stdout);
 #endif

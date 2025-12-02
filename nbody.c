@@ -8,9 +8,9 @@
 #include "compute.h"
 
 // represents the objects in the system.  Global variables
-vector3 *hVel, *d_hVel;
-vector3 *hPos, *d_hPos;
-double *mass, *d_mass;
+vector3* hVel, * d_hVel;
+vector3* hPos, * d_hPos;
+double* mass;
 
 //initHostMemory: Create storage for numObjects entities in our system
 //Parameters: numObjects: number of objects to allocate
@@ -18,9 +18,9 @@ double *mass, *d_mass;
 //Side Effects: Allocates memory in the hVel, hPos, and mass global variables
 void initHostMemory(int numObjects)
 {
-	hVel = (vector3 *)malloc(sizeof(vector3) * numObjects);
-	hPos = (vector3 *)malloc(sizeof(vector3) * numObjects);
-	mass = (double *)malloc(sizeof(double) * numObjects);
+	hVel = (vector3*)malloc(sizeof(vector3) * numObjects);
+	hPos = (vector3*)malloc(sizeof(vector3) * numObjects);
+	mass = (double*)malloc(sizeof(double) * numObjects);
 }
 
 //freeHostMemory: Free storage allocated by a previous call to initHostMemory
@@ -39,15 +39,15 @@ void freeHostMemory()
 //Parameters: None
 //Returns: None
 //Fills the first 8 entries of our system with an estimation of the sun plus our 8 planets.
-void planetFill(){
-	int i,j;
-	double data[][7]={SUN,MERCURY,VENUS,EARTH,MARS,JUPITER,SATURN,URANUS,NEPTUNE};
-	for (i=0;i<=NUMPLANETS;i++){
-		for (j=0;j<3;j++){
-			hPos[i][j]=data[i][j];
-			hVel[i][j]=data[i][j+3];
+void planetFill() {
+	int i, j;
+	double data[][7] = { SUN,MERCURY,VENUS,EARTH,MARS,JUPITER,SATURN,URANUS,NEPTUNE };
+	for (i = 0; i <= NUMPLANETS; i++) {
+		for (j = 0; j < 3; j++) {
+			hPos[i][j] = data[i][j];
+			hVel[i][j] = data[i][j + 3];
 		}
-		mass[i]=data[i][6];
+		mass[i] = data[i][6];
 	}
 }
 
@@ -74,53 +74,42 @@ void randomFill(int start, int count)
 //Parameters: 	handle: A handle to an open file with write access to prnt the data to
 //Returns: 		none
 //Side Effects: Modifies the file handle by writing to it.
-void printSystem(FILE* handle){
-	int i,j;
-	fprintf(handle, "\n\nSYSTEM STATE:\n\n");
-	for (i=0;i<NUMENTITIES;i++){
-		fprintf(handle,"pos=(");
-		for (j=0;j<3;j++){
-			fprintf(handle,"%lf,",hPos[i][j]);
+void printSystem(FILE* handle) {
+	int i, j;
+	for (i = 0; i < NUMENTITIES; i++) {
+		fprintf(handle, "pos=(");
+		for (j = 0; j < 3; j++) {
+			fprintf(handle, "%lf,", hPos[i][j]);
 		}
 		printf("),v=(");
-		for (j=0;j<3;j++){
-			fprintf(handle,"%lf,",hVel[i][j]);
+		for (j = 0; j < 3; j++) {
+			fprintf(handle, "%lf,", hVel[i][j]);
 		}
-		fprintf(handle,"),m=%lf\n",mass[i]);
+		fprintf(handle, "),m=%lf\n", mass[i]);
 	}
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
-	//PUT T0 HERE AT THE END
+	clock_t t0 = clock();
 	int t_now;
-
 	//srand(time(NULL));
 	srand(1234);
-	
 	initHostMemory(NUMENTITIES);
 	planetFill();
 	randomFill(NUMPLANETS + 1, NUMASTEROIDS);
-	
-	initDeviceMemory(NUMENTITIES);
 	//now we have a system.
-
 #ifdef DEBUG
 	printSystem(stdout);
 #endif
-	clock_t t0 = clock();
-
-	for (t_now=0;t_now<DURATION;t_now+=INTERVAL){
+	for (t_now = 0; t_now < DURATION; t_now += INTERVAL) {
 		compute();
 	}
-	clock_t t1=clock()-t0;
-	
-	freeDeviceMemory();
-
+	clock_t t1 = clock() - t0;
 #ifdef DEBUG
 	printSystem(stdout);
 #endif
-	printf("This took a total time of %f seconds\n",(double)t1/CLOCKS_PER_SEC);
+	printf("This took a total time of %f seconds\n", (double)t1 / CLOCKS_PER_SEC);
 
 	freeHostMemory();
 }

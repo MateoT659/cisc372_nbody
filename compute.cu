@@ -31,7 +31,6 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 	if (i < NUMENTITIES) {
 		accels[i] = &values[i * NUMENTITIES];
 	}
-	atomicAdd(&values[0][0], 3.0);
 }
 
 __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
@@ -80,11 +79,11 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	TreeSum(accels[i], j);
 
 	vector3 accelSum = { 0,0,0 };
-	if (j % blockDim.x == 0) {
+	/*if (j % blockDim.x == 0) {
 		for (k = 0; k < 3; k++) {
 			atomicAdd(&accelSum[k], accels[i][j][k]);
 		}
-	}
+	}*/
 	
 	//compute the new velocity based on the acceleration and time interval
 	if (j == 0) {

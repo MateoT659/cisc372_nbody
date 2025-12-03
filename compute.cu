@@ -54,44 +54,48 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	}
 }
 
-__device__ void TreeSum(vector3* values, int thx) {
-	int stride, k;
+__device__ void TreeSum(vector3* values) {
+	int stride, k, thx, end;
 
-	for(stride = 1; stride<blockDim.x; stride <<=1) {
-		__syncthreads();
-		if ((thx % (stride<<1)) == 0 && thx + stride < NUMENTITIES) {
+	thx = threadIdx.x + blockIdx.x * blockDim.x;
+	end = blockIdx.x * blockDim.x + blockDim.x;
+
+	__syncthreads();
+
+	for(stride = 1; stride < blockDim.x; stride <<= 1) {
+		if ((thx % (stride<<1)) == 0 && thx + stride < end) {
 			for (k = 0; k < 3; k++) {
 				values[thx][k] += values[thx + stride][k];
 			}
 		}
+		__syncthreads();
 	}
 }
 
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
-	int i, j, k;
+	int row, col, k;
 
-	i = blockIdx.y;
-	j = blockIdx.x * blockDim.x + threadIdx.x;
+	row = blockIdx.y;
+	col = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (i >= NUMENTITIES || j >= NUMENTITIES) return;
+	if (row >= NUMENTITIES || col >= NUMENTITIES) return;
 
 	//tree sum
-	TreeSum(accels[i], j);
-	__syncthreads();
+	TreeSum(accels[row]);
 
-	if (j % blockDim.x == 0 && j != 0) {
+	if (col % blockDim.x == 0 && col != 0) {
 		for (k = 0; k < 3; k++) {
-			atomicAdd(&accels[i][0][k], accels[i][j][k]);
+			atomicAdd(&accels[row][0][k], accels[row][col][k]);
 		}
 	}
 
 	__syncthreads();
 	
 	//compute the new velocity based on the acceleration and time interval
-	if (j == 0) {
+	if (col == 0) {
 		for (k = 0; k < 3; k++) {
-			hVel[i][k] += accels[i][0][k] * INTERVAL;
-			hPos[i][k] += hVel[i][k] * INTERVAL;
+			hVel[row][k] += accels[row][0][k] * INTERVAL;
+			hPos[row][k] += hVel[row][k] * INTERVAL;
 		}
 	}
 }

@@ -7,6 +7,15 @@
 vector3* d_values;
 vector3** d_accels;
 
+dim3 blockSizeGrid(16, 16);
+dim3 nBlocksGrid(
+	(NUMENTITIES + blockSizeGrid.x - 1) / blockSizeGrid.x,
+	(NUMENTITIES + blockSizeGrid.y - 1) / blockSizeGrid.y
+);
+
+int blockSize = 256;
+int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
+
 #define EC(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
 {
@@ -65,22 +74,11 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
-	dim3 blockSizeGrid(16, 16);
-	dim3 nBlocksGrid(
-		(NUMENTITIES + blockSizeGrid.x - 1) / blockSizeGrid.x,
-		(NUMENTITIES + blockSizeGrid.y - 1) / blockSizeGrid.y
-	);
-
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 
-	int blockSize = 256;
-	int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
-
 	accelSums<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_hVel);
 	EC(cudaDeviceSynchronize());
-
-
 }
 
 extern "C" void initDeviceMemory(int numEntities) {
@@ -94,9 +92,8 @@ extern "C" void initDeviceMemory(int numEntities) {
 
 	EC(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
 	EC(cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES));
-	int blockSize = 256;
-	int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
-	initAccels << <nBlocks, blockSize >> > (d_accels, d_values);
+
+	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
 	EC(cudaDeviceSynchronize());
 }
 

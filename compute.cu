@@ -54,27 +54,41 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	}
 }
 
+__device__ void TreeSum(vector3* values, int thx) {
+	int stride, k;
+
+	for(stride = 1; stride<blockDim.x; stride <<=1) {
+		__syncthreads();
+		if ((thx % (stride<<1)) == 0) {
+			for (k = 0; k < 3; k++) {
+				values[thx][k] += values[thx + stride][k];
+			}
+		}
+	}
+}
+
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	int i,j, k;
 
-	i = blockIdx.x * blockDim.x + threadIdx.x;
-	j = blockIdx.y * blockDim.y + threadIdx.y;
+	i = blockIdx.y;
+	j = blockIdx.x * blockDim.x + threadIdx.x;
+
 	if (i >= NUMENTITIES || j >= NUMENTITIES) return;
 
 	//tree sum
-	for (int stride = 1; stride < NUMENTITIES; stride <<= 1){
-		if(j%stride<<1==0){
-			for(k=0;k<3;k++){
-				accels[i][j][k]+=accels[i][j+stride][k];
-			}
+	TreeSum(accels[i], j);
+
+	vector3 accelSum = { 0,0,0 };
+	if (j % blockDim.x == 0) {
+		for (k = 0; k < 3; k++) {
+			atomicAdd(&accelSum[k], accels[i][j][k]);
 		}
-		__syncthreads();
 	}
 	
 	//compute the new velocity based on the acceleration and time interval
 	if (j == 0) {
 		for (k = 0; k < 3; k++) {
-			hVel[i][k] += accels[i][j][k] * INTERVAL;
+			hVel[i][k] += accelSum[k] * INTERVAL;
 			hPos[i][k] += hVel[i][k] * INTERVAL;
 		}
 	}
@@ -85,13 +99,13 @@ extern "C" void compute() {
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 
-	dim3 accelSumsBlockSize(16, 16);
-	dim3 accelSumsnBlocks(
-		(NUMENTITIES + accelSumsBlockSize.x - 1) / accelSumsBlockSize.x,
-		(NUMENTITIES + accelSumsBlockSize.y - 1) / accelSumsBlockSize.y
+	int accelSumsBlockSize = 256;
+	dim3 accelSumsNBlocks(
+		(NUMENTITIES + accelSumsBlockSize - 1) / accelSumsBlockSize,
+		NUMENTITIES
 	);
 
-	accelSums<<<accelSumsnBlocks, accelSumsBlockSize>>>(d_accels, d_hPos, d_hVel);
+	accelSums<<<accelSumsNBlocks, accelSumsBlockSize>>>(d_accels, d_hPos, d_hVel);
 	EC(cudaDeviceSynchronize());
 }
 

@@ -1,4 +1,4 @@
-FLAGS= -DDEBUG
+FLAGS= -DDEBUG -arch=sm_60
 LIBS= -lm
 ALWAYS_REBUILD=makefile
 CC=nvcc

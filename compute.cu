@@ -13,6 +13,12 @@ dim3 nBlocksGrid(
 	(NUMENTITIES + blockSizeGrid.y - 1) / blockSizeGrid.y
 );
 
+int accelSumsBlockSize = 256;
+dim3 accelSumsNBlocks(
+	(NUMENTITIES + accelSumsBlockSize - 1) / accelSumsBlockSize,
+	NUMENTITIES
+);
+
 int blockSize = 256;
 int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
 
@@ -54,17 +60,15 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	}
 }
 
-__device__ void TreeSum(vector3* values) {
-	int stride, k, thx;
-
-	thx = threadIdx.x % blockDim.x;
+__device__ void TreeSum(vector3* values, int sharedIndex) {
+	int stride, k;
 
 	__syncthreads();
 
 	for(stride = 1; stride < blockDim.x; stride <<= 1) {
-		if ((thx % (stride<<1)) == 0 && thx + stride < blockDim.x) {
+		if ((sharedIndex % (stride<<1)) == 0 && sharedIndex + stride < blockDim.x) {
 			for (k = 0; k < 3; k++) {
-				values[thx][k] += values[thx + stride][k];
+				values[sharedIndex][k] += values[sharedIndex + stride][k];
 			}
 		}
 		__syncthreads();
@@ -89,10 +93,8 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	}
 	__syncthreads();
 
-	TreeSum(sharedAccels);
+	TreeSum(sharedAccels, sharedIndex);
 	
-	__syncthreads();
-
 	if (col == 0) {
 		FILL_VECTOR(accels[row][0], 0, 0, 0);
 	}
@@ -119,12 +121,6 @@ extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
-
-	int accelSumsBlockSize = 256;
-	dim3 accelSumsNBlocks(
-		(NUMENTITIES + accelSumsBlockSize - 1) / accelSumsBlockSize,
-		NUMENTITIES
-	);
 
 	accelSums<<<accelSumsNBlocks, accelSumsBlockSize>>>(d_accels, d_hPos, d_hVel);
 	EC(cudaDeviceSynchronize());

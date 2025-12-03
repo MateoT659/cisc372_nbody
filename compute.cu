@@ -82,15 +82,19 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	//tree sum
 	__shared__ vector3 sharedAccels[256];
 
-	int sharedIndex = threadIdx.x%blockDim.x;
+	int sharedIndex = threadIdx.x % 256;
 	for(int k = 0; k<3; k++) {
 		sharedAccels[sharedIndex][k] = accels[row][col][k];
 	}
 	__syncthreads();
 
 	TreeSum(sharedAccels);
+	
+	__syncthreads();
 
-	if (col % blockDim.x == 0 && col != 0) {
+	FILL_VECTOR(accels[row][0], 0, 0, 0);
+
+	if (col % blockDim.x == 0) {
 		for (k = 0; k < 3; k++) {
 			atomicAdd(&accels[row][0][k], sharedAccels[0][k]);
 		}

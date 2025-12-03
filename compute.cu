@@ -39,25 +39,31 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 	}
 }
 
+//split into two kernels to avoid conditional splitting of warps
+__global__ void pairwiseAccelsDiag(vector3** accels, vector3* hPos, double* mass) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (i >= NUMENTITIES) return;
+
+	FILL_VECTOR(accels[i][i], 0, 0, 0);
+}
+
 __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	int i, j, k;
 	
 	i = blockIdx.x * blockDim.x + threadIdx.x;
 	j = blockIdx.y * blockDim.y + threadIdx.y;
 
+	i += i >= j; // skip diagonal, true is 1 so offsets top half
+
 	if (i >= NUMENTITIES || j >= NUMENTITIES) return;
 
-	if (i == j) {
-		FILL_VECTOR(accels[i][j], 0, 0, 0);
-	}
-	else {
-		vector3 distance;
-		for (k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
-		double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
-		double magnitude = sqrt(magnitude_sq);
-		double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
-		FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
-	}
+	vector3 distance;
+	for (k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
+	double magnitude_sq = distance[0] * distance[0] + distance[1] * distance[1] + distance[2] * distance[2];
+	double magnitude = sqrt(magnitude_sq);
+	double accelmag = -1 * GRAV_CONSTANT * mass[j] / magnitude_sq;
+	FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
 }
 
 __device__ void TreeSum(vector3* values, int sharedIndex) {

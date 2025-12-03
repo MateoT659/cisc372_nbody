@@ -68,7 +68,7 @@ __device__ void TreeSum(vector3* values, int thx) {
 }
 
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
-	int i,j, k;
+	int i, j, k;
 
 	i = blockIdx.y;
 	j = blockIdx.x * blockDim.x + threadIdx.x;
@@ -84,6 +84,8 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 			atomicAdd(&accels[i][0][k], accels[i][j][k]);
 		}
 	}
+
+	__syncthreads();
 	
 	//compute the new velocity based on the acceleration and time interval
 	if (j == 0) {

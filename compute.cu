@@ -77,18 +77,18 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 
 	//tree sum
 	TreeSum(accels[i], j);
+	__syncthreads();
 
-	vector3 accelSum = { 0,0,0 };
-	/*if (j % blockDim.x == 0) {
+	if (j % blockDim.x == 0 && j != 0) {
 		for (k = 0; k < 3; k++) {
-			atomicAdd(&accelSum[k], accels[i][j][k]);
+			atomicAdd(&accels[i][0][k], accels[i][j][k]);
 		}
-	}*/
+	}
 	
 	//compute the new velocity based on the acceleration and time interval
 	if (j == 0) {
 		for (k = 0; k < 3; k++) {
-			hVel[i][k] += accelSum[k] * INTERVAL;
+			hVel[i][k] += accels[i][0][k] * INTERVAL;
 			hPos[i][k] += hVel[i][k] * INTERVAL;
 		}
 	}

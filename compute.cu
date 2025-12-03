@@ -125,6 +125,10 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
+	
+	pairwiseAccelsDiag<<<nBlocksGrid.x, blockSizeGrid.x>>>(d_accels, d_hPos, d_mass);
+	EC(cudaDeviceSynchronize());
+
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 

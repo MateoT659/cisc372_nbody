@@ -59,7 +59,7 @@ __device__ void TreeSum(vector3* values, int thx) {
 
 	for(stride = 1; stride<blockDim.x; stride <<=1) {
 		__syncthreads();
-		if ((thx % (stride<<1)) == 0) {
+		if ((thx % (stride<<1)) == 0 && thx + stride < NUMENTITIES) {
 			for (k = 0; k < 3; k++) {
 				values[thx][k] += values[thx + stride][k];
 			}

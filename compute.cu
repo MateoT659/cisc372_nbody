@@ -54,17 +54,24 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	}
 }
 
+__device__ void Tree_Sum(vector3* arr, vector3* out, int n) {
+	vector3 sum = { 0,0,0 };
+	for (int i = 0; i < n; i++) {
+		for (int k = 0; k < 3; k++)
+			sum[k] += arr[i][k];
+	}
+	FILL_VECTOR(out[0], sum[0], sum[1], sum[2]);
+}
+
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
-	int i, j, k;
+	int i, k;
 
 	i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i >= NUMENTITIES) return;
 
-	vector3 accel_sum = { 0,0,0 };
-	for (j = 0; j < NUMENTITIES; j++) {
-		for (k = 0; k < 3; k++)
-			accel_sum[k] += accels[i][j][k];
-	}
+	vector3 accel_sum;
+	Tree_Sum(accels[i], &accel_sum, NUMENTITIES);
+	
 	//compute the new velocity based on the acceleration and time interval
 	for (k = 0; k < 3; k++) {
 		hVel[i][k] += accel_sum[k] * INTERVAL;

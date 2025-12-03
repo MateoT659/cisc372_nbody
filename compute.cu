@@ -31,8 +31,7 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 	if (i < NUMENTITIES) {
 		accels[i] = &values[i * NUMENTITIES];
 	}
-
-	atomicAdd(&accels[0][0][0], accels[0][0][0]);
+	atomicAdd(&values[0][0], 3.0);
 }
 
 __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {

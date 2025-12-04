@@ -39,7 +39,7 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 	}
 }
 
-//split into two kernels to avoid conditional splitting of warps
+//split into two kernels to avoid conditional splitting of warps, only do this once because diagonals are always zero
 __global__ void pairwiseAccelsDiag(vector3** accels, vector3* hPos, double* mass) {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -120,14 +120,12 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 			hVel[row][k] += accels[row][0][k] * INTERVAL;
 			hPos[row][k] += hVel[row][k] * INTERVAL;
 		}
+		FILL_VECTOR(accels[0][0], 0, 0, 0); //this is because we no longer update the diagonal ever loop, but we still need to it to be zero
 	}
 }
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
-	
-	pairwiseAccelsDiag<<<nBlocksGrid.x, blockSizeGrid.x>>>(d_accels, d_hPos, d_mass);
-	EC(cudaDeviceSynchronize());
 
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
@@ -149,6 +147,10 @@ extern "C" void initDeviceMemory(int numEntities) {
 	EC(cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES));
 
 	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
+
+	pairwiseAccelsDiag << <nBlocksGrid.x, blockSizeGrid.x >> > (d_accels, d_hPos, d_mass);
+	EC(cudaDeviceSynchronize());
+	
 	EC(cudaDeviceSynchronize());
 }
 

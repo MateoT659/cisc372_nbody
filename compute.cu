@@ -23,6 +23,7 @@ int blockSize = 256;
 int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
 
 __global__ void initAccels(vector3** accels, vector3* values) {
+	//thread controls initializing one row of accels
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i < NUMENTITIES) {
 		accels[i] = &values[i * NUMENTITIES];
@@ -31,6 +32,7 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 
 //update diags each time because they are used as places to store the sum to save a bit of memory
 __global__ void pairwiseAccelsDiag(vector3** accels, vector3* hPos, double* mass) {
+	//thread i sets the ith diagonal to 0
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (i >= NUMENTITIES) return;
@@ -38,8 +40,9 @@ __global__ void pairwiseAccelsDiag(vector3** accels, vector3* hPos, double* mass
 	FILL_VECTOR(accels[i][i], 0, 0, 0);
 }
 
-//compute acceleration everywhere except the diagonal, diagonal is split to remove a conditional so warps do better
 __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
+	//mostly unchanged code, basic parallelization using grid. 
+	//i took out the diagonal conditional and put it in another kernel so warps perform better
 	int i, j, k;
 	
 	i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -55,8 +58,8 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
 }
 
-//tree sum using shared mem
 __device__ void TreeSum(vector3* values, int sharedIndex) {
+	//tree sum reduction for the device
 	int stride, k;
 
 	for(stride = 1; stride < blockDim.x; stride <<= 1) {
@@ -71,6 +74,7 @@ __device__ void TreeSum(vector3* values, int sharedIndex) {
 
 
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
+	//each block is in one row, tree sum every index the block controls then add to the diagonal of that row
 	int row, col, k, sharedIndex;
 
 	row = blockIdx.y;
@@ -82,7 +86,9 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	sharedIndex = threadIdx.x;
 
 	for (k = 0; k < 3; k++) {
-		sharedAccels[sharedIndex][k] = (col >= NUMENTITIES) ? 0.0 : accels[row][col][k];
+		//row == col check is important - if a block atomic adds to accels[row][row] before the block containing
+		//accels[row][row] does the tree sum, it will be twice added. fix: remove from shared array entirely
+		sharedAccels[sharedIndex][k] = (col >= NUMENTITIES || row == col) ? 0.0 : accels[row][col][k];
 	}
 	__syncthreads();
 
@@ -96,6 +102,7 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 }
 
 __global__ void updateVelPos(vector3 * *accels, vector3 * hPos, vector3 * hVel) {
+	//each thread updates vel and pos using a diagonal (the sum) 
 	int i, k; 
 	
 	i = blockIdx.x * blockDim.x + threadIdx.x;

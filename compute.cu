@@ -13,6 +13,7 @@ dim3 nBlocksGrid(
 	(NUMENTITIES + blockSizeGrid.y - 1) / blockSizeGrid.y
 );
 
+//for accel sums, each block is entirely in one row to do a local tree sum
 int accelSumsBlockSize = 256;
 dim3 accelSumsNBlocks(
 	(NUMENTITIES + accelSumsBlockSize - 1) / accelSumsBlockSize,
@@ -22,16 +23,6 @@ dim3 accelSumsNBlocks(
 int blockSize = 256;
 int nBlocks = (NUMENTITIES + blockSize - 1) / blockSize;
 
-#define EC(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
-{
-	if (code != cudaSuccess)
-	{
-		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-		if (abort) exit(code);
-	}
-}
-
 __global__ void initAccels(vector3** accels, vector3* values) {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	if (i < NUMENTITIES) {
@@ -39,7 +30,7 @@ __global__ void initAccels(vector3** accels, vector3* values) {
 	}
 }
 
-//split into two kernels to avoid conditional splitting of warps, only do this once because diagonals are always zero
+//update diags each time because they are used as places to store the sum to save a bit of memory
 __global__ void pairwiseAccelsDiag(vector3** accels, vector3* hPos, double* mass) {
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -48,6 +39,7 @@ __global__ void pairwiseAccelsDiag(vector3** accels, vector3* hPos, double* mass
 	FILL_VECTOR(accels[i][i], 0, 0, 0);
 }
 
+//compute acceleration everywhere except the diagonal, diagonal is split to remove a conditional so warps do better
 __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	int i, j, k;
 	
@@ -64,13 +56,12 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	FILL_VECTOR(accels[i][j], accelmag * distance[0] / magnitude, accelmag * distance[1] / magnitude, accelmag * distance[2] / magnitude);
 }
 
+//tree sum using shared mem
 __device__ void TreeSum(vector3* values, int sharedIndex) {
 	int stride, k;
 
-	__syncthreads();
-
 	for(stride = 1; stride < blockDim.x; stride <<= 1) {
-		if ((sharedIndex % (stride<<1)) == 0 && sharedIndex + stride < blockDim.x) {
+		if ((sharedIndex % (stride<<1)) == 0) {
 			for (k = 0; k < 3; k++) {
 				values[sharedIndex][k] += values[sharedIndex + stride][k];
 			}
@@ -79,18 +70,17 @@ __device__ void TreeSum(vector3* values, int sharedIndex) {
 	}
 }
 
+
 __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
-	int row, col, k;
+	int row, col, k, sharedIndex;
 
 	row = blockIdx.y;
 	col = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (row >= NUMENTITIES) return;
 
-	//tree sum using shared memory
 	__shared__ vector3 sharedAccels[256];
-
-	int sharedIndex = threadIdx.x;
+	sharedIndex = threadIdx.x;
 
 	for (k = 0; k < 3; k++) {
 		sharedAccels[sharedIndex][k] = (col >= NUMENTITIES) ? 0.0 : accels[row][col][k];
@@ -98,8 +88,6 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	__syncthreads();
 
 	TreeSum(sharedAccels, sharedIndex);
-
-	__syncthreads();
 
 	if (sharedIndex == 0) {
 		for (k = 0; k < 3; k++) {
@@ -109,7 +97,6 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 }
 
 __global__ void updateVelPos(vector3 * *accels, vector3 * hPos, vector3 * hVel) {
-	//compute the new velocity based on the acceleration and time interval (single thread per row)
 	int i, k; 
 	
 	i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -124,43 +111,43 @@ __global__ void updateVelPos(vector3 * *accels, vector3 * hPos, vector3 * hVel) 
 extern "C" void compute() {
 
 	pairwiseAccelsDiag << <nBlocks, blockSize >> > (d_accels, d_hPos, d_mass);
-	EC(cudaDeviceSynchronize());
+	cudaDeviceSynchronize();
 
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
-	EC(cudaDeviceSynchronize());
+	cudaDeviceSynchronize();
 
 	accelSums<<<accelSumsNBlocks, accelSumsBlockSize>>>(d_accels, d_hPos, d_hVel);
-	EC(cudaDeviceSynchronize());
+	cudaDeviceSynchronize();
 
 	updateVelPos<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_hVel);
-	EC(cudaDeviceSynchronize());
+	cudaDeviceSynchronize();
 }
 
 extern "C" void initDeviceMemory(int numEntities) {
-	EC(cudaMalloc(&d_hPos, sizeof(vector3) * NUMENTITIES));
-	EC(cudaMalloc(&d_hVel, sizeof(vector3) * NUMENTITIES));
-	EC(cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES));
+	cudaMalloc(&d_hPos, sizeof(vector3) * NUMENTITIES);
+	cudaMalloc(&d_hVel, sizeof(vector3) * NUMENTITIES);
+	cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES);
 
-	EC(cudaMemcpy(d_hPos, hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice));
-	EC(cudaMemcpy(d_hVel, hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice));
-	EC(cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice));
+	cudaMemcpy(d_hPos, hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_hVel, hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice);
 
-	EC(cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES));
-	EC(cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES));
+	cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES);
+	cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES);
 
 	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
-	EC(cudaDeviceSynchronize());
+	cudaDeviceSynchronize();
 }
 
 extern "C" void freeDeviceMemory(int numEntities) {
-	EC(cudaFree(d_values));
-	EC(cudaFree(d_accels));
+	cudaFree(d_values);
+	cudaFree(d_accels);
 
-	EC(cudaMemcpy(hPos, d_hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost));
-	EC(cudaMemcpy(hVel, d_hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost));
-	EC(cudaMemcpy(mass, d_mass, sizeof(double) * NUMENTITIES, cudaMemcpyDeviceToHost));
+	cudaMemcpy(hPos, d_hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(hVel, d_hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyDeviceToHost);
+	cudaMemcpy(mass, d_mass, sizeof(double) * NUMENTITIES, cudaMemcpyDeviceToHost);
 
-	EC(cudaFree(d_hPos));
-	EC(cudaFree(d_hVel));
-	EC(cudaFree(d_mass));
+	cudaFree(d_hPos);
+	cudaFree(d_hVel);
+	cudaFree(d_mass);
 }

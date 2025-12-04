@@ -54,9 +54,7 @@ __global__ void pairwiseAccels(vector3** accels, vector3* hPos, double* mass) {
 	i = blockIdx.x * blockDim.x + threadIdx.x;
 	j = blockIdx.y * blockDim.y + threadIdx.y;
 
-	i += i >= j; // skip diagonal, true is 1 so offsets top half
-
-	if (i >= NUMENTITIES || j >= NUMENTITIES) return;
+	if (i >= NUMENTITIES || j >= NUMENTITIES || i == j) return;
 
 	vector3 distance;
 	for (k = 0; k < 3; k++) distance[k] = hPos[i][k] - hPos[j][k];
@@ -89,13 +87,13 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 
 	if (row >= NUMENTITIES) return;
 
-	//tree sum
+	//tree sum using shared memory
 	__shared__ vector3 sharedAccels[256];
 
-	int sharedIndex = threadIdx.x % 256;
+	int sharedIndex = threadIdx.x;
 
-	for(k = 0; k<3; k++) {
-		sharedAccels[sharedIndex][k] = col>=NUMENTITIES ? 0 : accels[row][col][k];
+	for(k = 0; k < 3; k++) {
+		sharedAccels[sharedIndex][k] = (col >= NUMENTITIES) ? 0.0 : accels[row][col][k];
 	}
 	__syncthreads();
 
@@ -111,16 +109,17 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 			atomicAdd(&accels[row][0][k], sharedAccels[0][k]);
 		}
 	}
-
 	__syncthreads();
 	
-	//compute the new velocity based on the acceleration and time interval
+	//compute the new velocity based on the acceleration and time interval (single thread per row)
 	if (col == 0) {
 		for (k = 0; k < 3; k++) {
 			hVel[row][k] += accels[row][0][k] * INTERVAL;
 			hPos[row][k] += hVel[row][k] * INTERVAL;
 		}
-		FILL_VECTOR(accels[0][0], 0, 0, 0); //this is because we no longer update the diagonal ever loop, but we still need to it to be zero
+		if (row == 0){
+			FILL_VECTOR(accels[0][0], 0, 0, 0); //this is because we no longer update the diagonal ever loop, but we still need to it to be zero
+		}
 	}
 }
 
@@ -148,7 +147,7 @@ extern "C" void initDeviceMemory(int numEntities) {
 
 	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
 
-	pairwiseAccelsDiag << <nBlocksGrid.x, blockSizeGrid.x >> > (d_accels, d_hPos, d_mass);
+	pairwiseAccelsDiag<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
 	
 	EC(cudaDeviceSynchronize());

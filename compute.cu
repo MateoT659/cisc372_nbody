@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
 #include "vector.h"
 #include "config.h"
@@ -109,32 +108,36 @@ __global__ void updateVelPos(vector3 * *accels, vector3 * hPos, vector3 * hVel) 
 }
 
 extern "C" void compute() {
+	//initialize the diagonals of the accels matrix to 0 (they're used for summing later)
+	pairwiseAccelsDiag<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_mass);
 
-	pairwiseAccelsDiag << <nBlocks, blockSize >> > (d_accels, d_hPos, d_mass);
-	cudaDeviceSynchronize();
-
+	//compute the accelerations on the non-diagonals of accels
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
-	cudaDeviceSynchronize();
 
+	//sum up using reduction and store each row's sum in accels[i][i]
 	accelSums<<<accelSumsNBlocks, accelSumsBlockSize>>>(d_accels, d_hPos, d_hVel);
-	cudaDeviceSynchronize();
 
+	//update hvel and hpos to avoid a race condition
 	updateVelPos<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_hVel);
 	cudaDeviceSynchronize();
 }
 
 extern "C" void initDeviceMemory(int numEntities) {
+	//init device pos, vel, mass once
 	cudaMalloc(&d_hPos, sizeof(vector3) * NUMENTITIES);
 	cudaMalloc(&d_hVel, sizeof(vector3) * NUMENTITIES);
 	cudaMalloc(&d_mass, sizeof(double) * NUMENTITIES);
 
+	//copy random values
 	cudaMemcpy(d_hPos, hPos, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_hVel, hVel, sizeof(vector3) * NUMENTITIES, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_mass, mass, sizeof(double) * NUMENTITIES, cudaMemcpyHostToDevice);
 
+	//init accels and values here so they don't have to be re-malloced every time
 	cudaMalloc(&d_values, sizeof(vector3) * NUMENTITIES * NUMENTITIES);
 	cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES);
 
+	//initializing 2d array
 	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
 	cudaDeviceSynchronize();
 }

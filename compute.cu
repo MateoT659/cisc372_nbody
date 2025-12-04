@@ -99,14 +99,11 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 
 	TreeSum(sharedAccels, sharedIndex);
 	
-	if (col == 0) {
-		FILL_VECTOR(accels[row][0], 0, 0, 0);
-	}
 	__syncthreads();
 
 	if (sharedIndex == 0) {
 		for (k = 0; k < 3; k++) {
-			atomicAdd(&accels[row][0][k], sharedAccels[0][k]);
+			atomicAdd(&accels[row][row][k], sharedAccels[0][k]); //note diag is 0
 		}
 	}
 	__syncthreads();
@@ -114,7 +111,7 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 	//compute the new velocity based on the acceleration and time interval (single thread per row)
 	if (col == 0) {
 		for (k = 0; k < 3; k++) {
-			hVel[row][k] += accels[row][0][k] * INTERVAL;
+			hVel[row][k] += accels[row][row][k] * INTERVAL;
 			hPos[row][k] += hVel[row][k] * INTERVAL;
 		}
 		if (row == 0){
@@ -125,6 +122,8 @@ __global__ void accelSums(vector3** accels, vector3* hPos, vector3* hVel) {
 
 extern "C" void compute() {
 	//make an acceleration matrix which is NUMENTITIES squared in size;
+	pairwiseAccelsDiag << <nBlocks, blockSize >> > (d_accels, d_hPos, d_mass);
+	EC(cudaDeviceSynchronize());
 
 	pairwiseAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_hPos, d_mass);
 	EC(cudaDeviceSynchronize());
@@ -146,10 +145,6 @@ extern "C" void initDeviceMemory(int numEntities) {
 	EC(cudaMalloc(&d_accels, sizeof(vector3*) * NUMENTITIES));
 
 	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
-
-	pairwiseAccelsDiag<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_mass);
-	EC(cudaDeviceSynchronize());
-	
 	EC(cudaDeviceSynchronize());
 }
 

@@ -119,7 +119,6 @@ extern "C" void compute() {
 
 	//update hvel and hpos to avoid a race condition
 	updateVelPos<<<nBlocks, blockSize>>>(d_accels, d_hPos, d_hVel);
-	cudaDeviceSynchronize();
 }
 
 extern "C" void initDeviceMemory(int numEntities) {
@@ -139,7 +138,6 @@ extern "C" void initDeviceMemory(int numEntities) {
 
 	//initializing 2d array
 	initAccels<<<nBlocksGrid, blockSizeGrid>>>(d_accels, d_values);
-	cudaDeviceSynchronize();
 }
 
 extern "C" void freeDeviceMemory(int numEntities) {
